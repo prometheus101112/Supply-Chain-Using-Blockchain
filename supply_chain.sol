@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract SupplyChain {
     enum Status { Created, InTransit, Delivered }
-
+    enum Roles {Manufacturer, Shipper, Customer}
     struct Product {
         uint productId;
         string productName;
@@ -24,19 +24,28 @@ contract SupplyChain {
         address logisticsProvider;
         Status status;
     }
-
+    mapping(address => Roles) public role;
     mapping(uint => Product) public products;
     mapping(uint => Order) public orders;
     mapping(uint => Shipment) public shipments;
-
+    constructor(){
+        role[0x151A661873D687d56551CAF5d63bd8DEB1217520] = Roles.Manufacturer;
+        role[0x1755A75e777f07EFbbb411cB30cCd2fBD9868Bcc] = Roles.Shipper;
+        role[0x77A8D5e6E3D6B383D7D48b3D58301Ad3cbc36f1E] = Roles.Customer;
+    }
     uint public productCount;
     uint public orderCount;
     uint public shipmentCount;
+    uint public curr_role;
+    bool public ship_verify;
+    bool public cust_verify;
 
     event ProductCreated(uint productId, string productName, uint quantity);
     event OrderCreated(uint orderId, uint productId, uint quantity, address buyer);
     event ShipmentCreated(uint shipmentId, uint orderId, address logisticsProvider);
 
+    modifier onlyManufacturer
+    
     function createProduct(string memory _productName, uint _quantity) public {
         productCount++;
         products[productCount] = Product(productCount, _productName, _quantity);
@@ -44,9 +53,9 @@ contract SupplyChain {
     }
 
     function createOrder(uint _productId, uint _quantity) public {
-        require(_productId <= productCount && _productId > 0, "Invalid product ID");
+        require(_productId > 0, "Invalid product ID");
+        require((bytes(products[_productId].productName).length != 0) ,"Product does not exist");
         require(products[_productId].quantity >= _quantity, "Insufficient product quantity");
-
         orderCount++;
         products[_productId].quantity -= _quantity;
         orders[orderCount] = Order(orderCount, _productId, _quantity, msg.sender, Status.Created);
@@ -62,8 +71,14 @@ contract SupplyChain {
         shipments[shipmentCount] = Shipment(shipmentCount, _orderId, msg.sender, Status.InTransit);
         emit ShipmentCreated(shipmentCount, _orderId, msg.sender);
     }
-
-    function deliveryApproval() public{
-        
+    function shipperVerification() public {
+        ship_verify = true;
+    }
+    function customerVerification() public {
+        cust_verify = true;
+    }
+    function deliveryApproval() view public returns  (string memory)  {
+        require((cust_verify) && (ship_verify), "Dual-verification failed");
+        return "Delivery successfully completed";
     }
 }
