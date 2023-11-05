@@ -44,15 +44,26 @@ contract SupplyChain {
     event OrderCreated(uint orderId, uint productId, uint quantity, address buyer);
     event ShipmentCreated(uint shipmentId, uint orderId, address logisticsProvider);
 
-    modifier onlyManufacturer
+    modifier onlyManufacturer() {
+        require(role[msg.sender] == Roles.Manufacturer, "Only a manufacturer can call this function");
+        _;
+    }
+    modifier onlyShipper() {
+        require(role[msg.sender] == Roles.Shipper, "Only a shipper can call this function");
+        _;
+    }
+    modifier onlyCustomer() {
+        require(role[msg.sender] == Roles.Customer, "Only a customer can call this function");
+        _;
+    }
     
-    function createProduct(string memory _productName, uint _quantity) public {
+    function createProduct(string memory _productName, uint _quantity) public onlyManufacturer {
         productCount++;
         products[productCount] = Product(productCount, _productName, _quantity);
         emit ProductCreated(productCount, _productName, _quantity);
     }
 
-    function createOrder(uint _productId, uint _quantity) public {
+    function createOrder(uint _productId, uint _quantity) public onlyCustomer{
         require(_productId > 0, "Invalid product ID");
         require((bytes(products[_productId].productName).length != 0) ,"Product does not exist");
         require(products[_productId].quantity >= _quantity, "Insufficient product quantity");
@@ -62,7 +73,7 @@ contract SupplyChain {
         emit OrderCreated(orderCount, _productId, _quantity, msg.sender);
     }
 
-    function createShipment(uint _orderId) public {
+    function createShipment(uint _orderId) public onlyShipper {
         require(_orderId <= orderCount && _orderId > 0, "Invalid order ID");
         require(orders[_orderId].status == Status.Created, "Order already processed");
 
@@ -71,10 +82,10 @@ contract SupplyChain {
         shipments[shipmentCount] = Shipment(shipmentCount, _orderId, msg.sender, Status.InTransit);
         emit ShipmentCreated(shipmentCount, _orderId, msg.sender);
     }
-    function shipperVerification() public {
+    function shipperVerification() public onlyShipper {
         ship_verify = true;
     }
-    function customerVerification() public {
+    function customerVerification() public onlyCustomer {
         cust_verify = true;
     }
     function deliveryApproval() view public returns  (string memory)  {
